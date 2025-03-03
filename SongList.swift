@@ -9,7 +9,7 @@ struct SongList: View {
     let playSong: (Int) -> Void
     let deleteSongs: (IndexSet) -> Void
     @Binding var searchText: String
-    @FocusState var isSearchFocused: Bool
+    @FocusState var isSearchFocused: Bool // Use @FocusState instead of @Binding
     @Binding var areControlsVisible: Bool
     @Binding var showDeleteConfirmation: Bool
     @ObservedObject var notesManager: NotesManager
@@ -81,7 +81,7 @@ struct SongList: View {
                 .onDelete(perform: deleteSongs)
             }
             .listStyle(InsetGroupedListStyle())
-            .focused($isSearchFocused)
+            .focused($isSearchFocused) // Now compatible with FocusState
             .onChange(of: searchText) { _ in
                 areControlsVisible = searchText.isEmpty
             }

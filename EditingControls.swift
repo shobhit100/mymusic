@@ -2,7 +2,6 @@ import SwiftUI
 
 struct EditingControls: View {
     @Binding var selectedSongURLs: Set<URL>
-    @Binding var songURLs: [URL]
     @Binding var playlists: [Playlist]
     @Binding var isEditing: Bool
     @Binding var showDeleteConfirmation: Bool
@@ -50,6 +49,6 @@ struct EditingControls: View {
     }
 
     private func selectAllSongs() {
-        selectedSongURLs = Set(songURLs)
+        selectedSongURLs = Set(playlists.flatMap { $0.songs })
     }
 }

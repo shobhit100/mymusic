@@ -28,8 +28,8 @@ struct ContentView: View {
     @ObservedObject var notesManager = NotesManager()
 
     // Playlist manager state
-    @State private var playlists: [Playlist] = [Playlist(name: "All")]
-    @State private var selectedPlaylist: Playlist?
+    @State var playlists: [Playlist] = [Playlist(name: "All")]
+    @State var selectedPlaylist: Playlist?
 
     var body: some View {
         NavigationView {
@@ -93,11 +93,10 @@ struct ContentView: View {
         }
     }
 
-    // Breaking down complex expressions into smaller parts
     var searchBarSection: some View {
         SearchBar(
             searchText: $searchText,
-            isSearchFocused: _isSearchFocused,
+            isSearchFocused: $isSearchFocused, // Correctly passing FocusState.Binding
             areControlsVisible: $areControlsVisible
         )
         .padding(.horizontal)
@@ -121,9 +120,9 @@ struct ContentView: View {
             isEditing: $isEditing,
             selectedSongs: $selectedSongURLs,
             playSong: playSongAtIndex,
-            deleteSongs: deleteSongs,
+            deleteSongs: deleteSongs(offsets:),
             searchText: $searchText,
-            isSearchFocused: _isSearchFocused,
+            isSearchFocused: $isSearchFocused, // Correctly passing FocusState.Binding
             areControlsVisible: $areControlsVisible,
             showDeleteConfirmation: $showDeleteConfirmation,
             notesManager: notesManager
@@ -150,12 +149,11 @@ struct ContentView: View {
     var editingControlsSection: some View {
         EditingControls(
             selectedSongURLs: $selectedSongURLs,
-            songURLs: $songURLs,
             playlists: $playlists,
             isEditing: $isEditing,
             showDeleteConfirmation: $showDeleteConfirmation,
             deleteSelectedSongs: deleteSelectedSongs,
-            addToPlaylist: addToPlaylist
+            addToPlaylist: addToPlaylist // Correctly using the function parameter
         )
     }
 
@@ -175,7 +173,7 @@ struct ContentView: View {
         }
     }
 
-    var toolbarContent: some View {
+    var toolbarContent: some View { // Correctly define the return type
         ToolbarContent(
             isEditing: $isEditing,
             selectedSongs: $selectedSongURLs,
@@ -190,7 +188,7 @@ struct ContentView: View {
             title: Text("Duplicate Songs"),
             message: Text("The following songs are already in your library:\n" + duplicateSongNames.joined(separator: "\n")),
             dismissButton: .default(Text("OK")) {
-                duplicateSongNames.removeAll()
+                duplicateSongNames = [] // Correctly mutate duplicateSongNames
             }
         )
     }
@@ -211,7 +209,7 @@ struct ContentView: View {
         selectedSongURLs = Set(songURLs)
     }
 
-    private func filteredSongs() -> [URL] {
+    func filteredSongs() -> [URL] {
         if let selectedPlaylist = selectedPlaylist, selectedPlaylist.name != "All" {
             return selectedPlaylist.songs
         } else {
@@ -219,7 +217,7 @@ struct ContentView: View {
         }
     }
 
-    private func playSongAtIndex(_ index: Int) {
+    func playSongAtIndex(_ index: Int) {
         guard index >= 0 && index < filteredSongs().count else {
             print("Index out of range")
             return
@@ -229,7 +227,7 @@ struct ContentView: View {
         playSong(url: song)
     }
 
-    private func playSong(url: URL) {
+    func playSong(url: URL) {
         do {
             player = try AVAudioPlayer(contentsOf: url)
             player?.delegate = playerDelegate
@@ -242,17 +240,17 @@ struct ContentView: View {
         }
     }
 
-    private func playPreviousSong() {
+    func playPreviousSong() {
         let previousIndex = currentSongIndex - 1
         playSongAtIndex(previousIndex >= 0 ? previousIndex : filteredSongs().count - 1)
     }
 
-    private func playNextSong() {
+    func playNextSong() {
         let nextIndex = currentSongIndex + 1
         playSongAtIndex(nextIndex < filteredSongs().count ? nextIndex : 0)
     }
 
-    private func togglePlayback() {
+    func togglePlayback() {
         if isPlaying {
             player?.pause()
         } else {
@@ -261,7 +259,7 @@ struct ContentView: View {
         isPlaying.toggle()
     }
 
-    private func skipTime(_ seconds: Double) {
+    func skipTime(_ seconds: Double) {
         guard let player = player else { return }
         let newTime = player.currentTime + seconds
         if newTime >= 0 && newTime <= player.duration {
@@ -269,20 +267,41 @@ struct ContentView: View {
         }
     }
 
-    private func savePlaylists() {
+    func deleteSongs(offsets: IndexSet) {
+        if offsets.contains(currentSongIndex) {
+            player?.stop()
+            player = nil
+            isPlaying = false
+            currentTime = 0
+            totalTime = 0
+        }
+        
+        songURLs.remove(atOffsets: offsets)
+        
+        if songURLs.isEmpty {
+            currentSongIndex = 0
+        } else if currentSongIndex >= songURLs.count {
+            currentSongIndex = max(0, songURLs.count - 1)
+        }
+        
+        saveSongs()
+        checkControlVisibility()
+    }
+
+    func savePlaylists() {
         if let data = try? JSONEncoder().encode(playlists) {
             UserDefaults.standard.set(data, forKey: "playlists")
         }
     }
 
-    private func loadPlaylists() {
+    func loadPlaylists() {
         if let data = UserDefaults.standard.data(forKey: "playlists"),
            let loadedPlaylists = try? JSONDecoder().decode([Playlist].self, from: data) {
             playlists = loadedPlaylists
         }
     }
 
-    private func addToPlaylist(_ playlist: Playlist) {
+    func addToPlaylist(_ playlist: Playlist) {
         guard !selectedSongURLs.isEmpty else { return }
         if let index = playlists.firstIndex(where: { $0.id == playlist.id }) {
             playlists[index].songs.append(contentsOf: selectedSongURLs)

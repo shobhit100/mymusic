@@ -5,17 +5,17 @@ extension ContentView {
     func playSong(at index: Int) {
         playbackTimer?.invalidate()
         
-        guard !songs.isEmpty else {
+        guard !songURLs.isEmpty else {
             cleanupPlayer()
             return
         }
         
-        guard index >= 0 && index < songs.count else { return }
+        guard index >= 0 && index < songURLs.count else { return }
         
         cleanupPlayer()
         
         currentSongIndex = index
-        let url = songs[index]
+        let url = songURLs[index]
         
         do {
             player = try AVAudioPlayer(contentsOf: url)
@@ -36,7 +36,7 @@ extension ContentView {
     }
     
     func togglePlayPause() {
-        if songs.isEmpty {
+        if songURLs.isEmpty {
             return
         }
         
@@ -57,21 +57,21 @@ extension ContentView {
     }
     
     func nextSong() {
-        guard !songs.isEmpty else { return }
+        guard !songURLs.isEmpty else { return }
         if isShuffleOn {
-            currentSongIndex = Int.random(in: 0..<songs.count)
+            currentSongIndex = Int.random(in: 0..<songURLs.count)
         } else {
-            currentSongIndex = (currentSongIndex + 1) % songs.count
+            currentSongIndex = (currentSongIndex + 1) % songURLs.count
         }
         playSong(at: currentSongIndex)
     }
 
     func previousSong() {
-        guard !songs.isEmpty else { return }
+        guard !songURLs.isEmpty else { return }
         if isShuffleOn {
-            currentSongIndex = Int.random(in: 0..<songs.count)
+            currentSongIndex = Int.random(in: 0..<songURLs.count)
         } else {
-            currentSongIndex = (currentSongIndex - 1 + songs.count) % songs.count
+            currentSongIndex = (currentSongIndex - 1 + songURLs.count) % songURLs.count
         }
         playSong(at: currentSongIndex)
     }
@@ -97,19 +97,19 @@ extension ContentView {
     }
     
     func deleteSelectedSongs() {
-        if selectedSongs.contains(songs[currentSongIndex]) {
+        if selectedSongURLs.contains(songURLs[currentSongIndex]) {
             cleanupPlayer()
         }
         
-        songs.removeAll { selectedSongs.contains($0) }
-        selectedSongs.removeAll()
+        songURLs.removeAll { selectedSongURLs.contains($0) }
+        selectedSongURLs.removeAll()
         isEditing = false
         
-        if songs.isEmpty {
+        if songURLs.isEmpty {
             currentSongIndex = 0
             cleanupPlayer()
-        } else if currentSongIndex >= songs.count {
-            currentSongIndex = max(0, songs.count - 1)
+        } else if currentSongIndex >= songURLs.count {
+            currentSongIndex = max(0, songURLs.count - 1)
         }
         
         saveSongs()
@@ -124,12 +124,12 @@ extension ContentView {
             totalTime = 0
         }
         
-        songs.remove(atOffsets: offsets)
+        songURLs.remove(atOffsets: offsets)
         
-        if songs.isEmpty {
+        if songURLs.isEmpty {
             currentSongIndex = 0
-        } else if currentSongIndex >= songs.count {
-            currentSongIndex = max(0, songs.count - 1)
+        } else if currentSongIndex >= songURLs.count {
+            currentSongIndex = max(0, songURLs.count - 1)
         }
         
         saveSongs()
@@ -137,13 +137,13 @@ extension ContentView {
     }
     
     func saveSongs() {
-        let songPaths = songs.map { $0.path }
+        let songPaths = songURLs.map { $0.path }
         UserDefaults.standard.set(songPaths, forKey: "savedSongs")
     }
     
     func loadSongs() {
         if let songPaths = UserDefaults.standard.array(forKey: "savedSongs") as? [String] {
-            songs = songPaths.map { URL(fileURLWithPath: $0) }
+            songURLs = songPaths.map { URL(fileURLWithPath: $0) }
         }
     }
     
@@ -157,11 +157,11 @@ extension ContentView {
         let savedSongIndex = UserDefaults.standard.integer(forKey: "currentSongIndex")
         let savedTime = UserDefaults.standard.double(forKey: "currentTime")
         
-        if savedSongIndex >= 0 && savedSongIndex < songs.count {
+        if savedSongIndex >= 0 && savedSongIndex < songURLs.count {
             currentSongIndex = savedSongIndex
             currentTime = savedTime
             
-            let url = songs[savedSongIndex]
+            let url = songURLs[savedSongIndex]
             do {
                 player = try AVAudioPlayer(contentsOf: url)
                 player?.prepareToPlay()
@@ -211,15 +211,15 @@ extension ContentView {
     func addSongs(_ newSongs: [URL]) {
         var duplicateFound = false
         for song in newSongs {
-            if songs.contains(song) {
+            if songURLs.contains(song) {
                 duplicateFound = true
-                duplicateSongs.append(song.lastPathComponent)
+                duplicateSongNames.append(song.lastPathComponent)
             } else {
-                songs.append(song)
+                songURLs.append(song)
             }
         }
         if duplicateFound {
-            duplicateSongs = Array(Set(duplicateSongs)) // Remove duplicates in alert
+            duplicateSongNames = Array(Set(duplicateSongNames)) // Remove duplicates in alert
         }
         saveSongs()
     }

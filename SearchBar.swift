@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SearchBar: View {
     @Binding var searchText: String
-    @FocusState var isSearchFocused: Bool
+    @FocusState var isSearchFocused: Bool // Use @FocusState directly
     @Binding var areControlsVisible: Bool
 
     var body: some View {
@@ -36,7 +36,7 @@ struct SearchBar: View {
                 .onTapGesture {
                     self.isSearchFocused = true
                 }
-                .focused($isSearchFocused)
+                .focused($isSearchFocused) // Use the @FocusState property directly
                 .onChange(of: searchText) { _ in
                     self.areControlsVisible = searchText.isEmpty
                 }
