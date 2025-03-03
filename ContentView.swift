@@ -2,7 +2,7 @@ import SwiftUI
 import AVKit
 
 struct ContentView: View {
-    @State var songs: [URL] = []
+    @State var songURLs: [URL] = []
     @State var currentSongIndex: Int = 0
     @State var isPlaying: Bool = false
     @State var player: AVAudioPlayer?
@@ -13,16 +13,16 @@ struct ContentView: View {
     @State var isShuffleOn: Bool = false
     @AppStorage("isDarkMode") var isDarkMode: Bool = false
     @State var isDocumentPickerPresented = false
-    @State var selectedSongs: Set<URL> = [] // For multi-selection
+    @State var selectedSongURLs: Set<URL> = [] // For multi-selection
     @State var isEditing: Bool = false // For multi-deletion mode
     @State var playerDelegate: PlayerDelegate?
     @State var showDeleteConfirmation: Bool = false
     @State var playbackTimer: Timer?
     @State var searchText: String = "" // For search functionality
     @State var areControlsVisible: Bool = true
-    @State var duplicateSongs: [String] = [] // For duplicate song alert
+    @State var duplicateSongNames: [String] = [] // For duplicate song alert
     @FocusState var isSearchFocused: Bool
-    
+
     // Note-taking states
     @State var isNotesViewPresented: Bool = false
     @ObservedObject var notesManager = NotesManager()
@@ -64,9 +64,9 @@ struct ContentView: View {
                         .preferredColorScheme(isDarkMode ? .dark : .light)
                 }
                 .sheet(isPresented: $isDocumentPickerPresented) {
-                    DocumentPicker(songs: $songs, duplicateSongs: $duplicateSongs, playlists: $playlists)
+                    DocumentPicker(songURLs: $songURLs, duplicateSongNames: $duplicateSongNames, playlists: $playlists)
                 }
-                .alert(isPresented: .constant(!duplicateSongs.isEmpty)) {
+                .alert(isPresented: .constant(!duplicateSongNames.isEmpty)) {
                     duplicateSongsAlert
                 }
                 .onAppear {
@@ -82,11 +82,11 @@ struct ContentView: View {
                     savePlaybackState()
                     savePlaylists()
                 }
-                .onChange(of: songs) { _ in
+                .onChange(of: songURLs) { _ in
                     saveSongs()
                 }
-                .onChange(of: selectedSongs) { _ in
-                    isEditing = !selectedSongs.isEmpty
+                .onChange(of: selectedSongURLs) { _ in
+                    isEditing = !selectedSongURLs.isEmpty
                 }
                 .preferredColorScheme(isDarkMode ? .dark : .light)
             }
@@ -119,7 +119,7 @@ struct ContentView: View {
             playlists: $playlists,
             currentSongIndex: $currentSongIndex,
             isEditing: $isEditing,
-            selectedSongs: $selectedSongs,
+            selectedSongs: $selectedSongURLs,
             playSong: playSongAtIndex,
             deleteSongs: deleteSongs,
             searchText: $searchText,
@@ -149,8 +149,8 @@ struct ContentView: View {
 
     var editingControlsSection: some View {
         EditingControls(
-            selectedSongs: $selectedSongs,
-            songs: $songs,
+            selectedSongURLs: $selectedSongURLs,
+            songURLs: $songURLs,
             playlists: $playlists,
             isEditing: $isEditing,
             showDeleteConfirmation: $showDeleteConfirmation,
@@ -168,8 +168,8 @@ struct ContentView: View {
             NotesView(isPresented: $isNotesViewPresented) { noteText in
                 let currentTime = player?.currentTime ?? 0.0
                 let note = Note(text: noteText, timestamp: currentTime)
-                if currentSongIndex < songs.count {
-                    notesManager.addNote(for: songs[currentSongIndex].lastPathComponent, note: note)
+                if currentSongIndex < songURLs.count {
+                    notesManager.addNote(for: songURLs[currentSongIndex].lastPathComponent, note: note)
                 }
             }
         }
@@ -178,7 +178,7 @@ struct ContentView: View {
     var toolbarContent: some View {
         ToolbarContent(
             isEditing: $isEditing,
-            selectedSongs: $selectedSongs,
+            selectedSongs: $selectedSongURLs,
             importSong: importSong,
             isSettingsPresented: $isSettingsPresented,
             shareSelectedSongs: shareSelectedSongs
@@ -188,17 +188,17 @@ struct ContentView: View {
     var duplicateSongsAlert: Alert {
         Alert(
             title: Text("Duplicate Songs"),
-            message: Text("The following songs are already in your library:\n" + duplicateSongs.joined(separator: "\n")),
+            message: Text("The following songs are already in your library:\n" + duplicateSongNames.joined(separator: "\n")),
             dismissButton: .default(Text("OK")) {
-                duplicateSongs.removeAll()
+                duplicateSongNames.removeAll()
             }
         )
     }
 
     func shareSelectedSongs() {
-        guard !selectedSongs.isEmpty else { return }
+        guard !selectedSongURLs.isEmpty else { return }
 
-        let items = Array(selectedSongs).map { $0 as Any }
+        let items = Array(selectedSongURLs).map { $0 as Any }
         let activityViewController = UIActivityViewController(activityItems: items, applicationActivities: nil)
 
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
@@ -208,14 +208,14 @@ struct ContentView: View {
     }
     
     func selectAllSongs() {
-        selectedSongs = Set(songs)
+        selectedSongURLs = Set(songURLs)
     }
 
     private func filteredSongs() -> [URL] {
         if let selectedPlaylist = selectedPlaylist, selectedPlaylist.name != "All" {
             return selectedPlaylist.songs
         } else {
-            return songs
+            return songURLs
         }
     }
 
@@ -283,9 +283,9 @@ struct ContentView: View {
     }
 
     private func addToPlaylist(_ playlist: Playlist) {
-        guard !selectedSongs.isEmpty else { return }
+        guard !selectedSongURLs.isEmpty else { return }
         if let index = playlists.firstIndex(where: { $0.id == playlist.id }) {
-            playlists[index].songs.append(contentsOf: selectedSongs)
+            playlists[index].songs.append(contentsOf: selectedSongURLs)
             savePlaylists()
         }
     }
