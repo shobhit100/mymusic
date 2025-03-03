@@ -26,15 +26,21 @@ struct ContentView: View {
     // Note-taking states
     @State var isNotesViewPresented: Bool = false
     @ObservedObject var notesManager = NotesManager()
-    
+
+    // Playlist manager state
+    @State private var playlists: [Playlist] = [Playlist(name: "All")]
+    @State private var selectedPlaylist: Playlist?
+
     var body: some View {
         NavigationView {
             GeometryReader { geometry in
                 VStack {
                     searchBarSection
-                    songListSection
+                    playlistTabsSection
                     if songs.isEmpty {
                         EmptyStateView()
+                    } else {
+                        songListSection
                     }
                     Spacer()
                     if areControlsVisible {
@@ -43,7 +49,7 @@ struct ContentView: View {
                     if isEditing {
                         editingControlsSection
                     }
-                    if !songs.isEmpty {
+                    if !songs.isEmpty && !isEditing {
                         addNoteButton
                     }
                 }
@@ -58,7 +64,7 @@ struct ContentView: View {
                         .preferredColorScheme(isDarkMode ? .dark : .light)
                 }
                 .sheet(isPresented: $isDocumentPickerPresented) {
-                    DocumentPicker(songs: $songs, duplicateSongs: $duplicateSongs)
+                    DocumentPicker(songs: $songs, duplicateSongs: $duplicateSongs, playlists: $playlists)
                 }
                 .alert(isPresented: .constant(!duplicateSongs.isEmpty)) {
                     duplicateSongsAlert
@@ -77,11 +83,14 @@ struct ContentView: View {
                 .onChange(of: songs) { _ in
                     saveSongs()
                 }
+                .onChange(of: selectedSongs) { _ in
+                    isEditing = !selectedSongs.isEmpty
+                }
                 .preferredColorScheme(isDarkMode ? .dark : .light)
             }
         }
     }
-    
+
     // Breaking down complex expressions into smaller parts
     var searchBarSection: some View {
         SearchBar(
@@ -89,11 +98,23 @@ struct ContentView: View {
             isSearchFocused: _isSearchFocused,
             areControlsVisible: $areControlsVisible
         )
+        .padding(.horizontal)
+    }
+
+    var playlistTabsSection: some View {
+        PlaylistTabsView(playlists: $playlists, selectedPlaylist: $selectedPlaylist)
     }
 
     var songListSection: some View {
         SongList(
-            songs: $songs,
+            songs: selectedPlaylist?.name == "All" ? $songs : Binding(get: {
+                playlists.first { $0.id == selectedPlaylist?.id }?.songs ?? []
+            }, set: { newSongs in
+                if let index = playlists.firstIndex(where: { $0.id == selectedPlaylist?.id }) {
+                    playlists[index].songs = newSongs
+                }
+            }),
+            playlists: $playlists,
             currentSongIndex: $currentSongIndex,
             isEditing: $isEditing,
             selectedSongs: $selectedSongs,
@@ -168,13 +189,17 @@ struct ContentView: View {
 
     func shareSelectedSongs() {
         guard !selectedSongs.isEmpty else { return }
-        
+
         let items = Array(selectedSongs).map { $0 as Any }
         let activityViewController = UIActivityViewController(activityItems: items, applicationActivities: nil)
-        
+
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
            let rootViewController = windowScene.windows.first?.rootViewController {
             rootViewController.present(activityViewController, animated: true, completion: nil)
         }
+    }
+    
+    func selectAllSongs() {
+        selectedSongs = Set(songs)
     }
 }

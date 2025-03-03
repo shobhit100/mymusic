@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 struct DocumentPicker: UIViewControllerRepresentable {
     @Binding var songs: [URL]
     @Binding var duplicateSongs: [String] // Alert binding for duplicate songs
+    @Binding var playlists: [Playlist] // Binding for playlists
 
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
         let documentPicker = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.audio], asCopy: true)
@@ -34,6 +35,9 @@ struct DocumentPicker: UIViewControllerRepresentable {
                     parent.duplicateSongs.append(url.lastPathComponent)
                 } else {
                     parent.songs.append(url)
+                    if let index = parent.playlists.firstIndex(where: { $0.name == "All" }) {
+                        parent.playlists[index].songs.append(url)
+                    }
                 }
             }
             if duplicateFound {

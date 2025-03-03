@@ -7,33 +7,40 @@ struct SearchBar: View {
 
     var body: some View {
         HStack {
-            TextField("Search songs", text: $searchText)
-                .padding(10)
+            TextField("Search", text: $searchText)
+                .padding(7)
+                .padding(.horizontal, 25)
                 .background(Color(.systemGray6))
-                .cornerRadius(isSearchFocused ? 16 : 8)
-                .autocapitalization(.none)
-                .disableAutocorrection(true)
+                .cornerRadius(8)
+                .overlay(
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(.gray)
+                            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+                            .padding(.leading, 8)
+                        
+                        if !searchText.isEmpty {
+                            Button(action: {
+                                self.searchText = ""
+                                self.isSearchFocused = false
+                                self.areControlsVisible = true
+                            }) {
+                                Image(systemName: "multiply.circle.fill")
+                                    .foregroundColor(.gray)
+                                    .padding(.trailing, 8)
+                            }
+                        }
+                    }
+                )
+                .padding(.horizontal, 10)
+                .onTapGesture {
+                    self.isSearchFocused = true
+                }
                 .focused($isSearchFocused)
-                .onChange(of: isSearchFocused) { focused in
-                    areControlsVisible = !focused
+                .onChange(of: searchText) { _ in
+                    self.areControlsVisible = searchText.isEmpty
                 }
-            
-            if isSearchFocused {
-                Button(action: {
-                    searchText = ""
-                    isSearchFocused = false
-                    areControlsVisible = true
-                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                }) {
-                    Text("Cancel")
-                        .foregroundColor(.blue)
-                }
-                .padding(.trailing, 10)
-                .transition(.move(edge: .trailing))
-                .animation(.default, value: isSearchFocused)
-            }
         }
-        .padding(.horizontal)
-        .animation(.easeInOut(duration: 0.3), value: isSearchFocused)
+        .padding(.top, 10)  // Add padding to avoid overlap with playlist names
     }
 }

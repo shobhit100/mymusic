@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SongList: View {
     @Binding var songs: [URL]
+    @Binding var playlists: [Playlist]
     @Binding var currentSongIndex: Int
     @Binding var isEditing: Bool
     @Binding var selectedSongs: Set<URL>
@@ -12,80 +13,89 @@ struct SongList: View {
     @Binding var areControlsVisible: Bool
     @Binding var showDeleteConfirmation: Bool
     @ObservedObject var notesManager: NotesManager
-    @State private var isNotesListViewPresented: Bool = false
-    @State private var selectedSongForNotes: URL?
-
-    var filteredSongs: [URL] {
-        if searchText.isEmpty {
-            return songs
-        } else {
-            return songs.filter { $0.lastPathComponent.localizedCaseInsensitiveContains(searchText) }
-        }
-    }
+    @State private var showAddToPlaylistSheet: Bool = false
+    @State private var newPlaylistName: String = ""
 
     var body: some View {
-        List {
-            ForEach(filteredSongs, id: \.self) { song in
-                HStack {
-                    VStack(alignment: .leading) {
+        if songs.isEmpty {
+            Text("No songs available")
+                .font(.title2)
+                .foregroundColor(.gray)
+                .padding()
+        } else {
+            List {
+                ForEach(filteredSongs(), id: \.self) { song in
+                    HStack {
                         Text(song.lastPathComponent)
-                            .foregroundColor(song == songs[currentSongIndex] ? .blue : .primary)
+                            .font(.headline)
                             .onTapGesture {
                                 if !isEditing {
                                     if let index = songs.firstIndex(of: song) {
                                         playSong(index)
                                     }
-                                    searchText = ""
-                                    isSearchFocused = false
-                                    areControlsVisible = true
-                                }
-                            }
-                            .padding(.vertical, 8)
-                            .background(song == songs[currentSongIndex] ? Color.blue.opacity(0.1) : Color.clear)
-                            .cornerRadius(8)
-                    }
-                    Spacer()
-                    Button(action: {
-                        selectedSongForNotes = song
-                        isNotesListViewPresented = true
-                    }) {
-                        Image(systemName: "note.text")
-                            .foregroundColor(.blue)
-                            .padding(.leading, 8)
-                            .frame(width: 44, height: 44)
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    if isEditing {
-                        Image(systemName: selectedSongs.contains(song) ? "checkmark.circle.fill" : "circle")
-                            .font(.system(size: 20))
-                            .foregroundColor(selectedSongs.contains(song) ? .blue : .gray)
-                            .transition(.opacity)
-                            .onTapGesture {
-                                if selectedSongs.contains(song) {
-                                    selectedSongs.remove(song)
                                 } else {
-                                    selectedSongs.insert(song)
+                                    if selectedSongs.contains(song) {
+                                        selectedSongs.remove(song)
+                                    } else {
+                                        selectedSongs.insert(song)
+                                    }
                                 }
                             }
+                            .contextMenu {
+                                Button(action: {
+                                    if selectedSongs.contains(song) {
+                                        selectedSongs.remove(song)
+                                    } else {
+                                        selectedSongs.insert(song)
+                                    }
+                                }) {
+                                    Text(selectedSongs.contains(song) ? "Deselect" : "Select")
+                                }
+                                Button(action: {
+                                    showAddToPlaylistSheet = true
+                                }) {
+                                    Text("Add to Playlist")
+                                }
+                            }
+                            .onLongPressGesture {
+                                if !isEditing {
+                                    isEditing = true
+                                    selectedSongs.insert(song)
+                                    areControlsVisible = false
+                                }
+                            }
+                        Spacer()
+                        if isEditing {
+                            Image(systemName: selectedSongs.contains(song) ? "checkmark.circle.fill" : "circle")
+                                .foregroundColor(selectedSongs.contains(song) ? .blue : .gray)
+                                .onTapGesture {
+                                    if selectedSongs.contains(song) {
+                                        selectedSongs.remove(song)
+                                    } else {
+                                        selectedSongs.insert(song)
+                                    }
+                                }
+                        }
                     }
                 }
-                .contentShape(Rectangle())
-                .onLongPressGesture {
-                    isEditing = true
-                    selectedSongs.insert(song)
-                    areControlsVisible = false
-                }
+                .onDelete(perform: deleteSongs)
             }
-            .onDelete { indexSet in
-                deleteSongs(indexSet)
+            .listStyle(InsetGroupedListStyle())
+            .focused($isSearchFocused)
+            .onChange(of: searchText) { _ in
+                areControlsVisible = searchText.isEmpty
+            }
+            .sheet(isPresented: $showAddToPlaylistSheet) {
+                AddToPlaylistView(playlists: $playlists, selectedSongs: Array(selectedSongs), newPlaylistName: $newPlaylistName, showAddToPlaylistSheet: $showAddToPlaylistSheet)
             }
         }
-        .listStyle(InsetGroupedListStyle())
-        .environment(\.editMode, .constant(isEditing ? .active : .inactive))
-        .sheet(isPresented: $isNotesListViewPresented) {
-            if let songForNotes = selectedSongForNotes {
-                NotesListView(notesManager: notesManager, songTitle: songForNotes.lastPathComponent)
-            }
+    }
+
+    private func filteredSongs() -> [URL] {
+        if searchText.isEmpty {
+            return songs
+        } else {
+            return songs.filter { $0.lastPathComponent.lowercased().contains(searchText.lowercased()) }
         }
     }
 }
