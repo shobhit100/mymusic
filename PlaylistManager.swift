@@ -1,5 +1,11 @@
 import SwiftUI
 
+struct Playlist: Identifiable, Codable, Hashable {
+    let id = UUID()
+    var name: String
+    var songs: [URL] = []
+}
+
 struct PlaylistManager: View {
     @Binding var allSongs: [URL]
     @Binding var playlists: [Playlist]
@@ -67,12 +73,6 @@ struct PlaylistManager: View {
     }
 }
 
-struct Playlist: Identifiable {
-    let id = UUID()
-    var name: String
-    var songs: [URL] = []
-}
-
 struct PlaylistDetailView: View {
     let playlist: Playlist
 
@@ -123,6 +123,7 @@ struct AddPlaylistView: View {
                         playlists.append(newPlaylist)
                         newPlaylistName = "New Playlist \(playlists.count)"
                         presentationMode.wrappedValue.dismiss()
+                        savePlaylists()
                     }
                 }
                 .padding()
@@ -135,5 +136,11 @@ struct AddPlaylistView: View {
         .cornerRadius(10)
         .shadow(radius: 20)
         .padding()
+    }
+
+    private func savePlaylists() {
+        if let data = try? JSONEncoder().encode(playlists) {
+            UserDefaults.standard.set(data, forKey: "playlists")
+        }
     }
 }

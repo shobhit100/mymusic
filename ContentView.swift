@@ -72,6 +72,7 @@ struct ContentView: View {
                 .onAppear {
                     setupAudioSession()
                     loadSongs()
+                    loadPlaylists()
                     resumePlayback()
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
@@ -79,6 +80,7 @@ struct ContentView: View {
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
                     savePlaybackState()
+                    savePlaylists()
                 }
                 .onChange(of: songs) { _ in
                     saveSongs()
@@ -118,7 +120,7 @@ struct ContentView: View {
             currentSongIndex: $currentSongIndex,
             isEditing: $isEditing,
             selectedSongs: $selectedSongs,
-            playSong: playSong,
+            playSong: playSongAtIndex,
             deleteSongs: deleteSongs,
             searchText: $searchText,
             isSearchFocused: _isSearchFocused,
@@ -138,10 +140,10 @@ struct ContentView: View {
             songs: Binding(get: {
                 filteredSongs()
             }, set: { _ in }),
-            previousSong: previousSong,
-            togglePlayPause: togglePlayPause,
-            skip: skip,
-            nextSong: nextSong
+            previousSong: playPreviousSong,
+            togglePlayPause: togglePlayback,
+            skip: skipTime,
+            nextSong: playNextSong
         )
     }
 
@@ -149,9 +151,11 @@ struct ContentView: View {
         EditingControls(
             selectedSongs: $selectedSongs,
             songs: $songs,
+            playlists: $playlists,
             isEditing: $isEditing,
             showDeleteConfirmation: $showDeleteConfirmation,
-            deleteSelectedSongs: deleteSelectedSongs
+            deleteSelectedSongs: deleteSelectedSongs,
+            addToPlaylist: addToPlaylist
         )
     }
 
@@ -164,7 +168,9 @@ struct ContentView: View {
             NotesView(isPresented: $isNotesViewPresented) { noteText in
                 let currentTime = player?.currentTime ?? 0.0
                 let note = Note(text: noteText, timestamp: currentTime)
-                notesManager.addNote(for: songs[currentSongIndex].lastPathComponent, note: note)
+                if currentSongIndex < songs.count {
+                    notesManager.addNote(for: songs[currentSongIndex].lastPathComponent, note: note)
+                }
             }
         }
     }
@@ -213,7 +219,7 @@ struct ContentView: View {
         }
     }
 
-    private func playSong(at index: Int) {
+    private func playSongAtIndex(_ index: Int) {
         guard index >= 0 && index < filteredSongs().count else {
             print("Index out of range")
             return
@@ -236,17 +242,17 @@ struct ContentView: View {
         }
     }
 
-    private func previousSong() {
+    private func playPreviousSong() {
         let previousIndex = currentSongIndex - 1
-        playSong(at: previousIndex >= 0 ? previousIndex : filteredSongs().count - 1)
+        playSongAtIndex(previousIndex >= 0 ? previousIndex : filteredSongs().count - 1)
     }
 
-    private func nextSong() {
+    private func playNextSong() {
         let nextIndex = currentSongIndex + 1
-        playSong(at: nextIndex < filteredSongs().count ? nextIndex : 0)
+        playSongAtIndex(nextIndex < filteredSongs().count ? nextIndex : 0)
     }
 
-    private func togglePlayPause() {
+    private func togglePlayback() {
         if isPlaying {
             player?.pause()
         } else {
@@ -255,11 +261,32 @@ struct ContentView: View {
         isPlaying.toggle()
     }
 
-    private func skip(seconds: Double) {
+    private func skipTime(_ seconds: Double) {
         guard let player = player else { return }
         let newTime = player.currentTime + seconds
         if newTime >= 0 && newTime <= player.duration {
             player.currentTime = newTime
+        }
+    }
+
+    private func savePlaylists() {
+        if let data = try? JSONEncoder().encode(playlists) {
+            UserDefaults.standard.set(data, forKey: "playlists")
+        }
+    }
+
+    private func loadPlaylists() {
+        if let data = UserDefaults.standard.data(forKey: "playlists"),
+           let loadedPlaylists = try? JSONDecoder().decode([Playlist].self, from: data) {
+            playlists = loadedPlaylists
+        }
+    }
+
+    private func addToPlaylist(_ playlist: Playlist) {
+        guard !selectedSongs.isEmpty else { return }
+        if let index = playlists.firstIndex(where: { $0.id == playlist.id }) {
+            playlists[index].songs.append(contentsOf: selectedSongs)
+            savePlaylists()
         }
     }
 }
