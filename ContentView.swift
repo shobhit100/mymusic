@@ -37,7 +37,7 @@ struct ContentView: View {
                 VStack {
                     searchBarSection
                     playlistTabsSection
-                    if songs.isEmpty {
+                    if filteredSongs().isEmpty {
                         EmptyStateView()
                     } else {
                         songListSection
@@ -49,7 +49,7 @@ struct ContentView: View {
                     if isEditing {
                         editingControlsSection
                     }
-                    if !songs.isEmpty && !isEditing {
+                    if !filteredSongs().isEmpty && !isEditing {
                         addNoteButton
                     }
                 }
@@ -107,8 +107,8 @@ struct ContentView: View {
 
     var songListSection: some View {
         SongList(
-            songs: selectedPlaylist?.name == "All" ? $songs : Binding(get: {
-                playlists.first { $0.id == selectedPlaylist?.id }?.songs ?? []
+            songs: Binding(get: {
+                filteredSongs()
             }, set: { newSongs in
                 if let index = playlists.firstIndex(where: { $0.id == selectedPlaylist?.id }) {
                     playlists[index].songs = newSongs
@@ -135,7 +135,9 @@ struct ContentView: View {
             currentTime: $currentTime,
             totalTime: $totalTime,
             currentSongIndex: $currentSongIndex,
-            songs: $songs,
+            songs: Binding(get: {
+                filteredSongs()
+            }, set: { _ in }),
             previousSong: previousSong,
             togglePlayPause: togglePlayPause,
             skip: skip,
@@ -201,5 +203,63 @@ struct ContentView: View {
     
     func selectAllSongs() {
         selectedSongs = Set(songs)
+    }
+
+    private func filteredSongs() -> [URL] {
+        if let selectedPlaylist = selectedPlaylist, selectedPlaylist.name != "All" {
+            return selectedPlaylist.songs
+        } else {
+            return songs
+        }
+    }
+
+    private func playSong(at index: Int) {
+        guard index >= 0 && index < filteredSongs().count else {
+            print("Index out of range")
+            return
+        }
+        currentSongIndex = index
+        let song = filteredSongs()[index]
+        playSong(url: song)
+    }
+
+    private func playSong(url: URL) {
+        do {
+            player = try AVAudioPlayer(contentsOf: url)
+            player?.delegate = playerDelegate
+            player?.prepareToPlay()
+            player?.play()
+            isPlaying = true
+            startPlaybackTimer()
+        } catch {
+            print("Error playing song: \(error.localizedDescription)")
+        }
+    }
+
+    private func previousSong() {
+        let previousIndex = currentSongIndex - 1
+        playSong(at: previousIndex >= 0 ? previousIndex : filteredSongs().count - 1)
+    }
+
+    private func nextSong() {
+        let nextIndex = currentSongIndex + 1
+        playSong(at: nextIndex < filteredSongs().count ? nextIndex : 0)
+    }
+
+    private func togglePlayPause() {
+        if isPlaying {
+            player?.pause()
+        } else {
+            player?.play()
+        }
+        isPlaying.toggle()
+    }
+
+    private func skip(seconds: Double) {
+        guard let player = player else { return }
+        let newTime = player.currentTime + seconds
+        if newTime >= 0 && newTime <= player.duration {
+            player.currentTime = newTime
+        }
     }
 }
